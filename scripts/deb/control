@@ -1,0 +1,12 @@
+Source: liblonghorn
+Maintainer: Sheng Yang <sheng@yasker.org>
+Section: misc
+Priority: optional
+Standards-Version: 0.1
+Build-Depends: debhelper (>= 9)
+
+Package: liblonghorn
+Architecture: amd64
+Depends: ${misc:Depends}
+Description: Longhorn development library
+ Use to communicate with Longhorn controller.

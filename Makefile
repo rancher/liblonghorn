@@ -6,10 +6,11 @@ OBJECTS=longhorn_rpc_client.o longhorn_rpc_protocol.o
 OUTPUT_FILE=liblonghorn.a
 HEADER_FILE=liblonghorn.h
 HEADER_LOCAL_DIR=include/
-INSTALL_LIB_DIR=/usr/local/lib
-INSTALL_HEADER_DIR=/usr/local/include
+INSTALL_LIB_DIR=$(DESTDIR)/usr/lib
+INSTALL_HEADER_DIR=$(DESTDIR)/usr/include
 
 CLEANEXTS=o a
+
 
 .PHONY: all
 all: $(OUTPUT_FILE)
@@ -34,6 +35,9 @@ longhorn_rpc_protocol.o: src/longhorn_rpc_protocol.c src/log.h \
 clean:
 	rm -f $(OBJECTS) $(OUTPUT_FILE)
 
+distclean:
+	rm -f $(OBJECTS) $(OUTPUT_FILE)
+
 install:
 	mkdir -p $(INSTALL_LIB_DIR)
 	cp -p $(OUTPUT_FILE) $(INSTALL_LIB_DIR)
@@ -42,6 +46,9 @@ install:
 
 uninstall:
 	rm -f $(INSTALL_LIB_DIR)/$(OUTPUT_FILE) $(INSTALL_HEADER_DIR)/$(HEADER_FILE)
+
+deb:
+	scripts/build_deb.sh
 
 cscope:
 	find -name '*.[ch]' > cscope.files
