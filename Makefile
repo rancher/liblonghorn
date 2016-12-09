@@ -36,6 +36,7 @@ clean:
 	rm -f $(OBJECTS) $(OUTPUT_FILE)
 
 distclean:
+	rm -rf pkg/
 	rm -f $(OBJECTS) $(OUTPUT_FILE)
 
 install:

@@ -102,7 +102,7 @@ int lh_client_close_conn(struct lh_client_conn *conn) {
                 return 0;
         }
 
-        errorf("Start closing connection\n");
+        errorf("Closing connection\n");
 
         pthread_mutex_lock(&conn->mutex);
         if  (conn->state == CLIENT_CONN_STATE_CLOSE) {
@@ -130,8 +130,18 @@ int lh_client_close_conn(struct lh_client_conn *conn) {
         }
         pthread_mutex_unlock(&conn->msg_mutex);
 
-        free(conn);
-        conn = NULL;
+        if (pthread_cancel(conn->timeout_thread) < 0) {
+                errorf("Cannot cancel timeout thread\n");
+        }
+        if (pthread_cancel(conn->response_thread) < 0) {
+                errorf("Cannot cancel timeout thread\n");
+        }
+        if (pthread_join(conn->timeout_thread, NULL) < 0) {
+                errorf("Cannot wait for timeout thread\n");
+        }
+        if (pthread_join(conn->response_thread, NULL) < 0) {
+                errorf("Cannot wait timeout thread\n");
+        }
         errorf("Connection close complete\n");
         return 0;
 }
@@ -261,24 +271,25 @@ void *timeout_handler(void *arg) {
 	return NULL;
 }
 
-void lh_client_start_process(struct lh_client_conn *conn) {
+int start_process(struct lh_client_conn *conn) {
         int rc;
 
         conn->timeout_fd = timerfd_create(CLOCK_MONOTONIC, 0);
         if (conn->timeout_fd < 0) {
                 perror("Fail to create timerfd");
-                exit(-1);
+                return -EFAULT;
         }
         rc = pthread_create(&conn->timeout_thread, NULL, &timeout_handler, conn);
         if (rc < 0) {
                 perror("Fail to create response thread");
-                exit(-1);
+                return -EFAULT;
         }
         rc = pthread_create(&conn->response_thread, NULL, &response_process, conn);
         if (rc < 0) {
                 perror("Fail to create response thread");
-                exit(-1);
+                return -EFAULT;
         }
+        return 0;
 }
 
 int new_seq(struct lh_client_conn *conn) {
@@ -359,23 +370,26 @@ int lh_client_write_at(struct lh_client_conn *conn, void *buf, size_t count, off
         return process_request(conn, buf, count, offset, TypeWrite);
 }
 
-struct lh_client_conn *lh_client_open_conn(char *socket_path) {
+int lh_client_open_conn(struct lh_client_conn *conn, char *socket_path) {
         struct sockaddr_un addr;
         int fd, rc = 0;
-        struct lh_client_conn *conn = NULL;
         int i, connected = 0;
+
+        if (conn == NULL) {
+                return -EINVAL;
+        }
 
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
         if (fd == -1) {
                 perror("socket error");
-                exit(-1);
+                return -EFAULT;
         }
 
         memset(&addr, 0, sizeof(addr));
         addr.sun_family = AF_UNIX;
         if (strlen(socket_path) >= 108) {
                 errorf("socket path is too long, more than 108 characters\n");
-                exit(-EINVAL);
+                return -EINVAL;
         }
 
         strncpy(addr.sun_path, socket_path, strlen(socket_path));
@@ -391,13 +405,7 @@ struct lh_client_conn *lh_client_open_conn(char *socket_path) {
         }
         if (!connected) {
                 perror("connection error");
-                exit(-EFAULT);
-        }
-
-        conn = malloc(sizeof(struct lh_client_conn));
-        if (conn == NULL) {
-            perror("cannot allocate memory for conn");
-            return NULL;
+                return -EFAULT;
         }
 
         conn->fd = fd;
@@ -408,15 +416,29 @@ struct lh_client_conn *lh_client_open_conn(char *socket_path) {
         rc = pthread_mutex_init(&conn->mutex, NULL);
         if (rc < 0) {
                 perror("fail to init conn->mutex");
-                exit(-EFAULT);
+                return -EFAULT;
         }
 
         rc = pthread_mutex_init(&conn->msg_mutex, NULL);
         if (rc < 0) {
                 perror("fail to init conn->mutex");
-                exit(-EFAULT);
+                return -EFAULT;
         }
 
         conn->state = CLIENT_CONN_STATE_OPEN;
+
+        return start_process(conn);
+}
+
+struct lh_client_conn *lh_client_allocate_conn() {
+        struct lh_client_conn *conn = malloc(sizeof(struct lh_client_conn));
+        if (conn == NULL) {
+                return NULL;
+        }
+        bzero(conn, sizeof(struct lh_client_conn));
         return conn;
+}
+
+void lh_client_free_conn(struct lh_client_conn *conn) {
+        free(conn);
 }
