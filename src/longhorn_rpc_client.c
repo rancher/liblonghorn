@@ -153,8 +153,8 @@ void* response_process(void *arg) {
                         break;
                 }
 
-                if (resp->Type == TypeEOF) {
-                        errorf("Receive EOF, about to end the connection\n");
+                if (resp->Type == TypeClose) {
+                        errorf("Receive close message, about to end the connection\n");
                         break;
                 }
 
@@ -168,6 +168,7 @@ void* response_process(void *arg) {
                         errorf("Receive error for response %d of seq %d: %s\n",
                                         resp->Type, resp->Seq, (char *)resp->Data);
                         /* fall through so we can response to caller */
+                case TypeEOF:
                 case TypeResponse:
                         break;
                 default:

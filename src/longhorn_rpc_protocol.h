@@ -28,7 +28,8 @@ enum uint32_t {
 	TypeWrite,
 	TypeResponse,
 	TypeError,
-	TypeEOF
+	TypeEOF,
+	TypeClose
 };
 
 int send_msg(int fd, struct Message *msg);
