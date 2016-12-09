@@ -23,7 +23,7 @@ int retry_interval = 5;
 int retry_counts = 5;
 int request_timeout_period = 15; //seconds
 
-int send_request(struct client_connection *conn, struct Message *req) {
+int send_request(struct lh_client_conn *conn, struct Message *req) {
         int rc = 0;
 
         pthread_mutex_lock(&conn->mutex);
@@ -32,12 +32,12 @@ int send_request(struct client_connection *conn, struct Message *req) {
         return rc;
 }
 
-int receive_response(struct client_connection *conn, struct Message *resp) {
+int receive_response(struct lh_client_conn *conn, struct Message *resp) {
         return receive_msg(conn->fd, resp);
 }
 
 // Must be called with conn->msg_mutex hold
-void update_timeout_timer(struct client_connection *conn) {
+void update_timeout_timer(struct lh_client_conn *conn) {
         struct Message *head_msg = conn->msg_list;
         struct itimerspec its;
         its.it_value.tv_sec = 0;
@@ -64,7 +64,7 @@ void update_timeout_timer(struct client_connection *conn) {
         }
 }
 
-void add_request_in_queue(struct client_connection *conn, struct Message *req) {
+void add_request_in_queue(struct lh_client_conn *conn, struct Message *req) {
         pthread_mutex_lock(&conn->msg_mutex);
         if (clock_gettime(CLOCK_MONOTONIC, &req->expiration) < 0) {
                 perror("Fail to get current time");
@@ -80,7 +80,7 @@ void add_request_in_queue(struct client_connection *conn, struct Message *req) {
         pthread_mutex_unlock(&conn->msg_mutex);
 }
 
-struct Message *find_and_remove_request_from_queue(struct client_connection *conn,
+struct Message *find_and_remove_request_from_queue(struct lh_client_conn *conn,
                 int seq) {
         struct Message *req = NULL;
 
@@ -95,14 +95,14 @@ struct Message *find_and_remove_request_from_queue(struct client_connection *con
         return req;
 }
 
-int shutdown_client_connection(struct client_connection *conn) {
+int lh_client_close_conn(struct lh_client_conn *conn) {
         struct Message *req, *tmp;
 
         if (conn == NULL) {
                 return 0;
         }
 
-        errorf("Shutdown connection\n");
+        errorf("Start closing connection\n");
 
         pthread_mutex_lock(&conn->mutex);
         if  (conn->state == CLIENT_CONN_STATE_CLOSE) {
@@ -132,12 +132,12 @@ int shutdown_client_connection(struct client_connection *conn) {
 
         free(conn);
         conn = NULL;
-        errorf("Shutdown complete\n");
+        errorf("Connection close complete\n");
         return 0;
 }
 
 void* response_process(void *arg) {
-        struct client_connection *conn = arg;
+        struct lh_client_conn *conn = arg;
         struct Message *req, *resp;
         int ret = 0;
 
@@ -199,12 +199,12 @@ void* response_process(void *arg) {
         if (ret != 0) {
                 errorf("Receive response returned error\n");
         }
-        shutdown_client_connection(conn);
+        lh_client_close_conn(conn);
         return NULL;
 }
 
 void *timeout_handler(void *arg) {
-	struct client_connection *conn = arg;
+	struct lh_client_conn *conn = arg;
         int ret;
         int nfds = 1;
         struct pollfd *fds = malloc(sizeof(struct pollfd) * nfds);
@@ -260,7 +260,7 @@ void *timeout_handler(void *arg) {
 	return NULL;
 }
 
-void start_response_processing(struct client_connection *conn) {
+void lh_client_start_process(struct lh_client_conn *conn) {
         int rc;
 
         conn->timeout_fd = timerfd_create(CLOCK_MONOTONIC, 0);
@@ -280,11 +280,11 @@ void start_response_processing(struct client_connection *conn) {
         }
 }
 
-int new_seq(struct client_connection *conn) {
+int new_seq(struct lh_client_conn *conn) {
         return __sync_fetch_and_add(&conn->seq, 1);
 }
 
-int process_request(struct client_connection *conn, void *buf, size_t count, off_t offset,
+int process_request(struct lh_client_conn *conn, void *buf, size_t count, off_t offset,
                 uint32_t type) {
         struct Message *req = malloc(sizeof(struct Message));
         int rc = 0;
@@ -350,18 +350,18 @@ free:
         return rc;
 }
 
-int read_at(struct client_connection *conn, void *buf, size_t count, off_t offset) {
+int lh_client_read_at(struct lh_client_conn *conn, void *buf, size_t count, off_t offset) {
         return process_request(conn, buf, count, offset, TypeRead);
 }
 
-int write_at(struct client_connection *conn, void *buf, size_t count, off_t offset) {
+int lh_client_write_at(struct lh_client_conn *conn, void *buf, size_t count, off_t offset) {
         return process_request(conn, buf, count, offset, TypeWrite);
 }
 
-struct client_connection *new_client_connection(char *socket_path) {
+struct lh_client_conn *lh_client_open_conn(char *socket_path) {
         struct sockaddr_un addr;
         int fd, rc = 0;
-        struct client_connection *conn = NULL;
+        struct lh_client_conn *conn = NULL;
         int i, connected = 0;
 
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -393,7 +393,7 @@ struct client_connection *new_client_connection(char *socket_path) {
                 exit(-EFAULT);
         }
 
-        conn = malloc(sizeof(struct client_connection));
+        conn = malloc(sizeof(struct lh_client_conn));
         if (conn == NULL) {
             perror("cannot allocate memory for conn");
             return NULL;
