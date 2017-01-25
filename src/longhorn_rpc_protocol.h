@@ -7,7 +7,10 @@
 #include "uthash.h"
 #include "utlist.h"
 
+#define MAGIC_VERSION 0x1b01 // LongHorn01
+
 struct Message {
+        uint16_t        MagicVersion;
         uint32_t        Seq;
         uint32_t        Type;
         int64_t         Offset;
