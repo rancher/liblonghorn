@@ -14,6 +14,7 @@ struct Message {
         uint32_t        Seq;
         uint32_t        Type;
         int64_t         Offset;
+        uint32_t        Size;
         uint32_t        DataLength;
         void*           Data;
 

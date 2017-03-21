@@ -57,6 +57,11 @@ int send_msg(int fd, struct Message *msg) {
                 errorf("fail to write offset\n");
                 return -EINVAL;
         }
+        n = write_full(fd, &msg->Size, sizeof(msg->Size));
+        if (n != sizeof(msg->Size)) {
+                errorf("fail to write size\n");
+                return -EINVAL;
+        }
         n = write_full(fd, &msg->DataLength, sizeof(msg->DataLength));
         if (n != sizeof(msg->DataLength)) {
                 errorf("fail to write datalength\n");
@@ -106,6 +111,11 @@ int receive_msg(int fd, struct Message *msg) {
         n = read_full(fd, &msg->Offset, sizeof(msg->Offset));
         if (n != sizeof(msg->Offset)) {
                 errorf("fail to read offset\n");
+		return -EINVAL;
+        }
+        n = read_full(fd, &msg->Size, sizeof(msg->Size));
+        if (n != sizeof(msg->Size)) {
+                errorf("fail to read size\n");
 		return -EINVAL;
         }
         n = read_full(fd, &msg->DataLength, sizeof(msg->DataLength));

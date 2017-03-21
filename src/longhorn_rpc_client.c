@@ -195,8 +195,11 @@ void* response_process(void *arg) {
                 pthread_mutex_lock(&req->mutex);
 
                 if (resp->Type == TypeResponse || resp->Type == TypeEOF) {
-                        req->DataLength = resp->DataLength;
-                        memcpy(req->Data, resp->Data, req->DataLength);
+			req->Size = resp->Size;
+			req->DataLength = resp->DataLength;
+			if (resp->DataLength != 0) {
+				memcpy(req->Data, resp->Data, resp->DataLength);
+			}
                 } else if (resp->Type == TypeError) {
                         req->Type = TypeError;
                 }
@@ -320,14 +323,16 @@ int process_request(struct lh_client_conn *conn, void *buf, size_t count, off_t 
                 goto free;
         }
         req->Seq = new_seq(conn);
-        req->Type = type;
-        req->Offset = offset;
-        req->DataLength = count;
-        req->Data = buf;
+	req->Type = type;
+	req->Offset = offset;
+	req->Size = count;
+	req->Data = buf;
+	req->DataLength = 0;
 
-        if (req->Type == TypeRead) {
-                bzero(req->Data, count);
-        }
+	// We only going to transfer data on wire if it's write request
+	if (req->Type == TypeWrite) {
+		req->DataLength = count;
+	}
 
         rc = pthread_cond_init(&req->cond, NULL);
         if (rc < 0) {
