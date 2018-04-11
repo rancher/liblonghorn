@@ -447,3 +447,23 @@ struct lh_client_conn *lh_client_allocate_conn() {
 void lh_client_free_conn(struct lh_client_conn *conn) {
         free(conn);
 }
+
+int lh_client_wait_for_draining_requests(struct lh_client_conn *conn) {
+	struct Message *elt;
+	int count;
+	int i;
+
+	for (i = 0; i < request_timeout_period; i ++) {
+		pthread_mutex_lock(&conn->msg_mutex);
+		DL_COUNT(conn->msg_list, elt, count);
+		pthread_mutex_unlock(&conn->msg_mutex);
+		if (count == 0) {
+			break;
+		}
+		sleep(1);
+	}
+	if (count != 0) {
+		errorf("timeout on waiting for draining requests, remaining requests: %d", count);
+	}
+	return count;
+}
