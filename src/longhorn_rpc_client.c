@@ -175,8 +175,8 @@ void* response_process(void *arg) {
                                         resp->Type, resp->Seq);
                         continue;
                 case TypeError:
-                        errorf("Receive error for response %d of seq %d: %s\n",
-                                        resp->Type, resp->Seq, (char *)resp->Data);
+                        errorf("Receive error for response %d of seq %d\n",
+					resp->Type, resp->Seq);
                         /* fall through so we can response to caller */
                 case TypeEOF:
                 case TypeResponse:
@@ -362,6 +362,8 @@ int process_request(struct lh_client_conn *conn, void *buf, size_t count, off_t 
         }
 out:
         pthread_mutex_unlock(&req->mutex);
+        // need to clean up in case send_request() failed
+        find_and_remove_request_from_queue(conn, req->Seq);
 free:
         free(req);
         return rc;
