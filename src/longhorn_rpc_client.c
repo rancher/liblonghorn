@@ -45,9 +45,16 @@ void update_timeout_timer(struct lh_client_conn *conn) {
         its.it_interval.tv_sec = 0;
         its.it_interval.tv_nsec = 0;
 
+        // When there are messages on the queue, make timer that expires
+        // request_timeout_period seconds from now.
         if (head_msg != NULL) {
-                its.it_value.tv_sec = head_msg->expiration.tv_sec;
-                its.it_value.tv_nsec = head_msg->expiration.tv_nsec;
+                if (clock_gettime(CLOCK_MONOTONIC, &its.it_value) < 0) {
+                        perror("Fail to get current time");
+                        return;
+                }
+
+                its.it_value.tv_sec += request_timeout_period;
+
                 // Arm
                 if (timerfd_settime(conn->timeout_fd,
                                 TFD_TIMER_ABSTIME,
@@ -55,6 +62,11 @@ void update_timeout_timer(struct lh_client_conn *conn) {
                         errorf("BUG: Fail to set new timer\n");
                 }
         } else {
+                // When there are no more messages on the queue, we disarm
+                // the timer.  This is because we rearm the timer for every
+                // response received; when there are no more messages on the 
+                // queue, there is no response to be received.
+
                 // Disarm
                 if (timerfd_settime(conn->timeout_fd,
                                 TFD_TIMER_ABSTIME,
@@ -65,17 +77,22 @@ void update_timeout_timer(struct lh_client_conn *conn) {
 }
 
 void add_request_in_queue(struct lh_client_conn *conn, struct Message *req) {
+        int start_timer = 0;
+
         pthread_mutex_lock(&conn->msg_mutex);
-        if (clock_gettime(CLOCK_MONOTONIC, &req->expiration) < 0) {
-                perror("Fail to get current time");
-                return;
-        }
-        req->expiration.tv_sec += request_timeout_period;
+
+        // Arm timer on this message if there are no other in progress messages.
+        // We start the timer when there are no messages in the queue
+        // This allows us to have a timeout in case the there is only one
+        // message on the queue and we don't receive a response.
+        start_timer = (conn->msg_list == NULL);
 
         HASH_ADD_INT(conn->msg_hashtable, Seq, req);
         DL_APPEND(conn->msg_list, req);
 
-        update_timeout_timer(conn);
+        if (start_timer) {
+                update_timeout_timer(conn);
+        }
 
         pthread_mutex_unlock(&conn->msg_mutex);
 }
@@ -89,6 +106,15 @@ struct Message *find_and_remove_request_from_queue(struct lh_client_conn *conn,
         if (req != NULL) {
                 HASH_DEL(conn->msg_hashtable, req);
                 DL_DELETE(conn->msg_list, req);
+                // When we find a message on the queue, we will arm the timer
+                // for request_timeout_period seconds from now.  This ensures
+                // that when messages are on the queue, we should receive some
+                // kind of response to one of the messages on the queue every
+                // request_timeout_period seconds.
+                //
+                // Also, update_timeout_timer will also disarm the timer when
+                // there are no more messages on the queue because the replica
+                // shouldn't response in this case.
                 update_timeout_timer(conn);
         }
         pthread_mutex_unlock(&conn->msg_mutex);
@@ -251,11 +277,6 @@ void *timeout_handler(void *arg) {
 
                 pthread_mutex_lock(&conn->msg_mutex);
                 DL_FOREACH(conn->msg_list, req) {
-                        if ((req->expiration.tv_sec > now.tv_sec) ||
-					((req->expiration.tv_sec == now.tv_sec) &&
-					 (req->expiration.tv_nsec > now.tv_nsec))) {
-                                break;
-                        }
                         HASH_DEL(conn->msg_hashtable, req);
                         DL_DELETE(conn->msg_list, req);
 
@@ -266,7 +287,6 @@ void *timeout_handler(void *arg) {
                         pthread_mutex_unlock(&req->mutex);
                         pthread_cond_signal(&req->cond);
                 }
-                update_timeout_timer(conn);
                 pthread_mutex_unlock(&conn->msg_mutex);
 
         }
