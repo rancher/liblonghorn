@@ -24,7 +24,6 @@ struct Message {
         UT_hash_handle  hh;
 
         struct Message *next, *prev;
-        struct timespec expiration;
 };
 
 enum uint32_t {
