@@ -39,7 +39,7 @@ distclean:
 	rm -rf pkg/
 	rm -f $(OBJECTS) $(OUTPUT_FILE)
 
-install:
+install: all
 	mkdir -p $(INSTALL_LIB_DIR)
 	cp -p $(OUTPUT_FILE) $(INSTALL_LIB_DIR)
 	mkdir -p $(INSTALL_HEADER_DIR)
