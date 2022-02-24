@@ -5,36 +5,46 @@
 #include "log.h"
 #include "longhorn_rpc_protocol.h"
 
-int read_full(int fd, void *buf, int len) {
-        int readed = 0;
-        int ret;
+static ssize_t read_full(int fd, void *buf, ssize_t len) {
+        ssize_t nread = 0;
+        ssize_t ret;
 
-        while (readed < len) {
-                ret = read(fd, buf + readed, len - readed);
+        while (nread < len) {
+                ret = read(fd, buf + nread, len - nread);
                 if (ret < 0) {
+                        if (errno == EINTR) {
+                                continue;
+                        }
                         return ret;
+                } else if (ret == 0) {
+                        return nread;
                 }
-                readed += ret;
+                nread += ret;
         }
-        return readed;
+
+        return nread;
 }
 
-int write_full(int fd, void *buf, int len) {
-        int wrote = 0;
-        int ret;
+static ssize_t write_full(int fd, void *buf, ssize_t len) {
+        ssize_t nwrote = 0;
+        ssize_t ret;
 
-        while (wrote < len) {
-                ret = write(fd, buf + wrote, len - wrote);
+        while (nwrote < len) {
+                ret = write(fd, buf + nwrote, len - nwrote);
                 if (ret < 0) {
+                        if (errno == EINTR) {
+                                continue;
+                        }
                         return ret;
                 }
-                wrote += ret;
+                nwrote += ret;
         }
-        return wrote;
+
+        return nwrote;
 }
 
 int send_msg(int fd, struct Message *msg) {
-        int n = 0;
+        ssize_t n = 0;
 
         msg->MagicVersion = MAGIC_VERSION;
         n = write_full(fd, &msg->MagicVersion, sizeof(msg->MagicVersion));
@@ -72,7 +82,7 @@ int send_msg(int fd, struct Message *msg) {
 		if (n != msg->DataLength) {
                         if (n < 0)
                                 perror("fail writing data");
-			errorf("fail to write data, written %d expected %d\n",
+			errorf("fail to write data, wrote %zd; expected %u\n",
                                         n, msg->DataLength);
                         return -EINVAL;
 		}
@@ -80,9 +90,9 @@ int send_msg(int fd, struct Message *msg) {
         return 0;
 }
 
-// Caller need to release msg->Data
+// Caller needs to release msg->Data
 int receive_msg(int fd, struct Message *msg) {
-	int n;
+	ssize_t n;
 
         bzero(msg, sizeof(struct Message));
 
@@ -94,7 +104,7 @@ int receive_msg(int fd, struct Message *msg) {
 		return -EINVAL;
         }
         if (msg->MagicVersion != MAGIC_VERSION) {
-                errorf("wrong magic version 0x%x, expect 0x%x\n",
+                errorf("wrong magic version 0x%x, expected 0x%x\n",
                                 msg->MagicVersion, MAGIC_VERSION);
                 return -EINVAL;
         }
@@ -132,7 +142,7 @@ int receive_msg(int fd, struct Message *msg) {
                 }
 		n = read_full(fd, msg->Data, msg->DataLength);
 		if (n != msg->DataLength) {
-                        errorf("Cannot read full from fd, %d vs %d\n",
+                        errorf("Cannot read full from fd, %u vs %zd\n",
                                 msg->DataLength, n);
 			free(msg->Data);
 			return -EINVAL;
