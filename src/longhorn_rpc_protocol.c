@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
+#include <endian.h>
 
 #include "log.h"
 #include "longhorn_rpc_protocol.h"
@@ -45,35 +46,41 @@ static ssize_t write_full(int fd, void *buf, ssize_t len) {
 
 int send_msg(int fd, struct Message *msg) {
         ssize_t n = 0;
+	uint16_t MagicVersion = htole16(MAGIC_VERSION);
+	uint32_t Seq = htole32(msg->Seq);
+	uint32_t Type = htole32(msg->Type);
+	uint64_t Offset = htole64(*((uint64_t *)(&msg->Offset)));
+	uint32_t Size = htole32(msg->Size);
+	uint32_t DataLength = htole32(msg->DataLength);
 
         msg->MagicVersion = MAGIC_VERSION;
-        n = write_full(fd, &msg->MagicVersion, sizeof(msg->MagicVersion));
-        if (n != sizeof(msg->MagicVersion)) {
+        n = write_full(fd, &MagicVersion, sizeof(MagicVersion));
+        if (n != sizeof(MagicVersion)) {
                 errorf("fail to write magic version\n");
                 return -EINVAL;
         }
-        n = write_full(fd, &msg->Seq, sizeof(msg->Seq));
-        if (n != sizeof(msg->Seq)) {
+        n = write_full(fd, &Seq, sizeof(Seq));
+        if (n != sizeof(Seq)) {
                 errorf("fail to write seq\n");
                 return -EINVAL;
         }
-        n = write_full(fd, &msg->Type, sizeof(msg->Type));
-        if (n != sizeof(msg->Type)) {
+        n = write_full(fd, &Type, sizeof(Type));
+        if (n != sizeof(Type)) {
                 errorf("fail to write type\n");
                 return -EINVAL;
         }
-        n = write_full(fd, &msg->Offset, sizeof(msg->Offset));
-        if (n != sizeof(msg->Offset)) {
+        n = write_full(fd, &Offset, sizeof(Offset));
+        if (n != sizeof(Offset)) {
                 errorf("fail to write offset\n");
                 return -EINVAL;
         }
-        n = write_full(fd, &msg->Size, sizeof(msg->Size));
-        if (n != sizeof(msg->Size)) {
+        n = write_full(fd, &Size, sizeof(Size));
+        if (n != sizeof(Size)) {
                 errorf("fail to write size\n");
                 return -EINVAL;
         }
-        n = write_full(fd, &msg->DataLength, sizeof(msg->DataLength));
-        if (n != sizeof(msg->DataLength)) {
+        n = write_full(fd, &DataLength, sizeof(DataLength));
+        if (n != sizeof(DataLength)) {
                 errorf("fail to write datalength\n");
                 return -EINVAL;
         }
@@ -93,6 +100,7 @@ int send_msg(int fd, struct Message *msg) {
 // Caller needs to release msg->Data
 int receive_msg(int fd, struct Message *msg) {
 	ssize_t n;
+	uint64_t Offset;
 
         bzero(msg, sizeof(struct Message));
 
@@ -103,36 +111,56 @@ int receive_msg(int fd, struct Message *msg) {
                 errorf("fail to read magic version\n");
 		return -EINVAL;
         }
+
+	msg->MagicVersion = le16toh(msg->MagicVersion);
+
         if (msg->MagicVersion != MAGIC_VERSION) {
                 errorf("wrong magic version 0x%x, expected 0x%x\n",
                                 msg->MagicVersion, MAGIC_VERSION);
                 return -EINVAL;
         }
+
 	n = read_full(fd, &msg->Seq, sizeof(msg->Seq));
         if (n != sizeof(msg->Seq)) {
                 errorf("fail to read seq\n");
 		return -EINVAL;
         }
+
+	msg->Seq = le32toh(msg->Seq);
+
         n = read_full(fd, &msg->Type, sizeof(msg->Type));
         if (n != sizeof(msg->Type)) {
                 errorf("fail to read type\n");
 		return -EINVAL;
         }
-        n = read_full(fd, &msg->Offset, sizeof(msg->Offset));
-        if (n != sizeof(msg->Offset)) {
+
+	msg->Type = le32toh(msg->Type);
+
+        n = read_full(fd, &Offset, sizeof(Offset));
+        if (n != sizeof(Offset)) {
                 errorf("fail to read offset\n");
 		return -EINVAL;
         }
+
+
+	Offset = le64toh(msg->Offset);
+	msg->Offset = *( (int64_t *) &Offset);
+
         n = read_full(fd, &msg->Size, sizeof(msg->Size));
         if (n != sizeof(msg->Size)) {
                 errorf("fail to read size\n");
 		return -EINVAL;
         }
+
+	msg->Size = le32toh(msg->Size);
+
         n = read_full(fd, &msg->DataLength, sizeof(msg->DataLength));
         if (n != sizeof(msg->DataLength)) {
                 errorf("fail to read datalength\n");
 		return -EINVAL;
         }
+
+	msg->DataLength = le32toh(msg->DataLength);
 
 	if (msg->DataLength > 0) {
 		msg->Data = malloc(msg->DataLength);
