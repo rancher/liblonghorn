@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-c -Wall
+CFLAGS=-O2 -c -Wall
 LDFLAGS=
 OBJECTS=longhorn_rpc_client.o longhorn_rpc_protocol.o
 
