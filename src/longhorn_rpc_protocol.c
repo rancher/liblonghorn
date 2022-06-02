@@ -143,7 +143,7 @@ int receive_msg(int fd, struct Message *msg) {
         }
 
 
-	Offset = le64toh(msg->Offset);
+	Offset = le64toh(Offset);
 	msg->Offset = *( (int64_t *) &Offset);
 
         n = read_full(fd, &msg->Size, sizeof(msg->Size));
