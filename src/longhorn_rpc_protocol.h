@@ -9,6 +9,15 @@
 
 #define MAGIC_VERSION 0x1b01 // LongHorn01
 
+struct MessageHeader {
+        uint16_t        MagicVersion;
+        uint32_t        Seq;
+        uint32_t        Type;
+        uint64_t        Offset;
+        uint32_t        Size;
+        uint32_t        DataLength;
+} __attribute__((packed));
+
 struct Message {
         uint16_t        MagicVersion;
         uint32_t        Seq;
@@ -35,7 +44,7 @@ enum uint32_t {
 	TypeClose
 };
 
-int send_msg(int fd, struct Message *msg);
-int receive_msg(int fd, struct Message *msg);
+int send_msg(int fd, struct Message *msg, uint8_t *header, int header_size);
+int receive_msg(int fd, struct Message *msg, uint8_t *header, int header_size);
 
 #endif

@@ -19,6 +19,10 @@ struct lh_client_conn {
         struct Message *msg_hashtable;
         struct Message *msg_list;
         pthread_mutex_t msg_mutex;
+
+        uint8_t *request_header;
+        uint8_t *response_header;
+        int header_size;
 };
 
 enum {

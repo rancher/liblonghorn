@@ -27,13 +27,13 @@ int send_request(struct lh_client_conn *conn, struct Message *req) {
         int rc = 0;
 
         pthread_mutex_lock(&conn->mutex);
-        rc = send_msg(conn->fd, req);
+        rc = send_msg(conn->fd, req, conn->request_header, conn->header_size);
         pthread_mutex_unlock(&conn->mutex);
         return rc;
 }
 
 int receive_response(struct lh_client_conn *conn, struct Message *resp) {
-        return receive_msg(conn->fd, resp);
+        return receive_msg(conn->fd, resp, conn->response_header, conn->header_size);
 }
 
 // Must be called with conn->msg_mutex hold
@@ -463,9 +463,24 @@ struct lh_client_conn *lh_client_allocate_conn() {
                 return NULL;
         }
         bzero(conn, sizeof(struct lh_client_conn));
+
+        conn->header_size = sizeof(struct MessageHeader);
+        conn->request_header = malloc(conn->header_size);
+        conn->response_header = malloc(conn->header_size);
+        if (!conn->request_header || !conn->response_header) {
+                free(conn->request_header);
+                free(conn->response_header);
+                free(conn);
+                return NULL;
+        }
+
         return conn;
 }
 
 void lh_client_free_conn(struct lh_client_conn *conn) {
-        free(conn);
+        if (conn) {
+                free(conn->request_header);
+                free(conn->response_header);
+                free(conn);
+        }
 }
