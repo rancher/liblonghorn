@@ -1,6 +1,7 @@
 CC=gcc
 CFLAGS=-c -Wall
 LDFLAGS=
+LIBS=$(EXTRA_LIBS)
 OBJECTS=longhorn_rpc_client.o longhorn_rpc_protocol.o
 
 OUTPUT_FILE=liblonghorn.a
@@ -16,7 +17,7 @@ CLEANEXTS=o a
 all: $(OUTPUT_FILE)
 
 $(OUTPUT_FILE): $(OBJECTS)
-	ar r $@ $^
+	ar r $@ $^ $(LIBS)
 	ranlib $@
 
 .c.o:
