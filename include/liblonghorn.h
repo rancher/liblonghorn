@@ -8,4 +8,5 @@ int lh_client_close_conn(struct lh_client_conn *conn);
 
 int lh_client_read_at(struct lh_client_conn *conn, void *buf, size_t count, off_t offset);
 int lh_client_write_at(struct lh_client_conn *conn, void *buf, size_t count, off_t offset);
+int lh_client_unmap(struct lh_client_conn *conn, void *buf, size_t count, off_t offset);
 #endif
