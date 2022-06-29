@@ -197,6 +197,7 @@ void* response_process(void *arg) {
                 switch (resp->Type) {
                 case TypeRead:
                 case TypeWrite:
+                case TypeUnmap:
                         errorf("Wrong type for response %d of seq %d\n",
                                         resp->Type, resp->Seq);
                         continue;
@@ -337,7 +338,7 @@ int process_request(struct lh_client_conn *conn, void *buf, size_t count, off_t 
                 return -EINVAL;
         }
 
-        if (type != TypeRead && type != TypeWrite) {
+        if (type != TypeRead && type != TypeWrite && type != TypeUnmap) {
                 errorf("BUG: Invalid type for process_request %d\n", type);
                 rc = -EFAULT;
                 goto free;
@@ -395,6 +396,10 @@ int lh_client_read_at(struct lh_client_conn *conn, void *buf, size_t count, off_
 
 int lh_client_write_at(struct lh_client_conn *conn, void *buf, size_t count, off_t offset) {
         return process_request(conn, buf, count, offset, TypeWrite);
+}
+
+int lh_client_unmap(struct lh_client_conn *conn, void *buf, size_t count, off_t offset) {
+        return process_request(conn, buf, count, offset, TypeUnmap);
 }
 
 int lh_client_open_conn(struct lh_client_conn *conn, char *socket_path) {
