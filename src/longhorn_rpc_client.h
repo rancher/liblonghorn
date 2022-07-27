@@ -6,7 +6,7 @@
 #include "longhorn_rpc_protocol.h"
 
 struct lh_client_conn {
-        int seq;  // must be atomic
+        uint32_t seq;  // must be atomic
         int fd;
         int notify_fd;
         int timeout_fd;

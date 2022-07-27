@@ -315,7 +315,7 @@ int start_process(struct lh_client_conn *conn) {
         return 0;
 }
 
-int new_seq(struct lh_client_conn *conn) {
+uint32_t new_seq(struct lh_client_conn *conn) {
         return __sync_fetch_and_add(&conn->seq, 1);
 }
 

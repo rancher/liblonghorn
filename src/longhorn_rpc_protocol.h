@@ -26,6 +26,16 @@ struct Message {
         struct Message *next, *prev;
 };
 
+struct MessageHeader {
+        uint16_t        MagicVersion;
+        uint32_t        Seq;
+        uint32_t        Type;
+        uint64_t        Offset;
+        uint32_t        Size;
+        uint32_t        DataLength;
+} __attribute__((packed));
+
+
 enum uint32_t {
 	TypeRead,
 	TypeWrite,
