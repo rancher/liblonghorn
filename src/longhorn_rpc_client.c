@@ -21,7 +21,6 @@
 
 int retry_interval = 5;
 int retry_counts = 5;
-int request_timeout_period = 15; //seconds
 
 int send_request(struct lh_client_conn *conn, struct Message *req) {
         int rc = 0;
@@ -46,14 +45,14 @@ void update_timeout_timer(struct lh_client_conn *conn) {
         its.it_interval.tv_nsec = 0;
 
         // When there are messages on the queue, make timer that expires
-        // request_timeout_period seconds from now.
+        // request_timeout seconds from now.
         if (head_msg != NULL) {
                 if (clock_gettime(CLOCK_MONOTONIC, &its.it_value) < 0) {
                         perror("Fail to get current time");
                         return;
                 }
 
-                its.it_value.tv_sec += request_timeout_period;
+                its.it_value.tv_sec += conn->request_timeout;
 
                 // Arm
                 if (timerfd_settime(conn->timeout_fd,
@@ -107,10 +106,10 @@ struct Message *find_and_remove_request_from_queue(struct lh_client_conn *conn,
                 HASH_DEL(conn->msg_hashtable, req);
                 DL_DELETE(conn->msg_list, req);
                 // When we find a message on the queue, we will arm the timer
-                // for request_timeout_period seconds from now.  This ensures
+                // for request_timeout seconds from now.  This ensures
                 // that when messages are on the queue, we should receive some
                 // kind of response to one of the messages on the queue every
-                // request_timeout_period seconds.
+                // request_timeout seconds.
                 //
                 // Also, update_timeout_timer will also disarm the timer when
                 // there are no more messages on the queue because the replica
@@ -462,7 +461,7 @@ int lh_client_open_conn(struct lh_client_conn *conn, char *socket_path) {
         return start_process(conn);
 }
 
-struct lh_client_conn *lh_client_allocate_conn() {
+struct lh_client_conn *lh_client_allocate_conn(int request_timeout) {
         struct lh_client_conn *conn = malloc(sizeof(struct lh_client_conn));
         if (conn == NULL) {
                 return NULL;
@@ -478,6 +477,8 @@ struct lh_client_conn *lh_client_allocate_conn() {
                 free(conn);
                 return NULL;
         }
+
+        conn->request_timeout = request_timeout;
 
         return conn;
 }
