@@ -106,13 +106,15 @@ int receive_msg(int fd, struct Message *msg) {
 
         // There is only one thread reading the response, and socket is
         // full-duplex, so no need to lock
+        printf("[receive-msg]MagicVersion: %d\n", msg->MagicVersion);
+
 	n = read_full(fd, &msg->MagicVersion, sizeof(msg->MagicVersion));
         if (n != sizeof(msg->MagicVersion)) {
                 errorf("fail to read magic version\n");
 		return -EINVAL;
         }
 
-	msg->MagicVersion = le16toh(msg->MagicVersion);
+	msg->MagicVersion = le16toh(msg->MagicVersion);  //小端字节顺序转主机字节序
 
         if (msg->MagicVersion != MAGIC_VERSION) {
                 errorf("wrong magic version 0x%x, expected 0x%x\n",
@@ -126,7 +128,7 @@ int receive_msg(int fd, struct Message *msg) {
 		return -EINVAL;
         }
 
-	msg->Seq = le32toh(msg->Seq);
+	msg->Seq = le32toh(msg->Seq);  //小端字节序转主机字节序
 
         n = read_full(fd, &msg->Type, sizeof(msg->Type));
         if (n != sizeof(msg->Type)) {
@@ -152,7 +154,7 @@ int receive_msg(int fd, struct Message *msg) {
 		return -EINVAL;
         }
 
-	msg->Size = le32toh(msg->Size);
+	msg->Size = le32toh(msg->Size);   //小端字节序转主机字节序
 
         n = read_full(fd, &msg->DataLength, sizeof(msg->DataLength));
         if (n != sizeof(msg->DataLength)) {

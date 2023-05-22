@@ -183,6 +183,10 @@ void* response_process(void *arg) {
             return NULL;
         }
 
+        // print resp->type  resp->data
+        printf("[response_process] res->type: %s\n", resp->Type);
+        printf("[response_process]res ->data: %s\n", &resp->Data);
+
         while (1) {
                 ret = receive_response(conn, resp);
                 if (ret != 0) {
@@ -295,6 +299,7 @@ void *timeout_handler(void *arg) {
 }
 
 int start_process(struct lh_client_conn *conn) {
+        printf("[start_process] start lh_client_conn 进程");
         int rc;
 
         conn->timeout_fd = timerfd_create(CLOCK_MONOTONIC, 0);
@@ -302,11 +307,15 @@ int start_process(struct lh_client_conn *conn) {
                 perror("Fail to create timerfd");
                 return -EFAULT;
         }
+        
+        printf("[start_process]start thread time_out");
         rc = pthread_create(&conn->timeout_thread, NULL, &timeout_handler, conn);
         if (rc < 0) {
                 perror("Fail to create response thread");
                 return -EFAULT;
         }
+
+        printf("[start_process]start thread responce_thread");
         rc = pthread_create(&conn->response_thread, NULL, &response_process, conn);
         if (rc < 0) {
                 perror("Fail to create response thread");
@@ -398,6 +407,8 @@ int lh_client_write_at(struct lh_client_conn *conn, void *buf, size_t count, off
 }
 
 int lh_client_open_conn(struct lh_client_conn *conn, char *socket_path) {
+        printf("[lh_client_open_conn]start unix socket server");
+
         struct sockaddr_un addr;
         int fd, rc = 0;
         int i, connected = 0;
@@ -440,7 +451,8 @@ int lh_client_open_conn(struct lh_client_conn *conn, char *socket_path) {
         conn->msg_hashtable = NULL;
         conn->msg_list = NULL;
 
-        rc = pthread_mutex_init(&conn->mutex, NULL);
+        // pthread多线程，互斥锁初始化
+        rc = pthread_mutex_init(&conn->mutex, NULL); 
         if (rc < 0) {
                 perror("fail to init conn->mutex");
                 return -EFAULT;
@@ -452,8 +464,9 @@ int lh_client_open_conn(struct lh_client_conn *conn, char *socket_path) {
                 return -EFAULT;
         }
 
-        conn->state = CLIENT_CONN_STATE_OPEN;
+        conn->state = CLIENT_CONN_STATE_OPEN;  // state 0
 
+        // 开启进程
         return start_process(conn);
 }
 

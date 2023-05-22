@@ -11,7 +11,7 @@ struct lh_client_conn {
         int notify_fd;
         int timeout_fd;
         int state;
-        pthread_mutex_t mutex;
+        pthread_mutex_t mutex;  // pthread 互斥锁
 
         pthread_t response_thread;
         pthread_t timeout_thread;
