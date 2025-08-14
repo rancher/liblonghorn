@@ -201,6 +201,7 @@ void* response_process(void *arg) {
                                         resp->Type, resp->Seq);
                         continue;
                 case TypeError:
+                case TypeENOSPC:
                         errorf("Receive error for response %d of seq %d\n",
 					resp->Type, resp->Seq);
                         /* fall through so we can response to caller */
@@ -228,6 +229,8 @@ void* response_process(void *arg) {
 			}
                 } else if (resp->Type == TypeError) {
                         req->Type = TypeError;
+                } else if (resp->Type == TypeENOSPC) {
+                        req->Type = TypeENOSPC;
                 }
                 free(resp->Data);
 
@@ -379,6 +382,9 @@ int process_request(struct lh_client_conn *conn, void *buf, size_t count, off_t 
 
         if (req->Type == TypeError) {
                 rc = -EFAULT;
+        }
+        if (req->Type == TypeENOSPC) {
+                rc = -ENOSPC;
         }
 out:
         pthread_mutex_unlock(&req->mutex);

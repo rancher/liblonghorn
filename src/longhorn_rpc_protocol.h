@@ -43,7 +43,8 @@ enum uint32_t {
 	TypeEOF,
 	TypeClose,
 	TypePing,
-	TypeUnmap
+	TypeUnmap,
+	TypeENOSPC
 };
 
 int send_msg(int fd, struct Message *msg, uint8_t *header, int header_size);
