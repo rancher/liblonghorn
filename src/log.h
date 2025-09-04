@@ -34,4 +34,7 @@ static inline void longhorn_log(const char *level, const char *fmt, ...) {
 #define LOG_ERROR(fmt, ...) \
     longhorn_log("Error", fmt, ##__VA_ARGS__)
 
+#define LOG_INFO(fmt, ...) \
+    longhorn_log("Info", fmt, ##__VA_ARGS__)
+
 #endif

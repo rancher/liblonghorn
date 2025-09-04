@@ -127,7 +127,7 @@ int lh_client_close_conn(struct lh_client_conn *conn) {
                 return 0;
         }
 
-        LOG_ERROR("Closing connection");
+        LOG_INFO("Closing connection");
 
         pthread_mutex_lock(&conn->mutex);
         if  (conn->state == CLIENT_CONN_STATE_CLOSE) {
